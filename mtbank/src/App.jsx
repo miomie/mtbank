@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import RegisterPage from './pages/RegisterPage';
 import HomePage from './pages/HomePage';
 import FamilyRouter from './pages/FamilyRouter';
+import ChatPage from './pages/ChatPage';
 
 // Компонент проверки авторизации
 const ProtectedRoute = ({ children }) => {
@@ -34,6 +35,16 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <FamilyRouter />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Вкладка «Чат» — ИИ-помощник белка */}
+      <Route
+        path="/chat"
+        element={
+          <ProtectedRoute>
+            <ChatPage />
           </ProtectedRoute>
         }
       />

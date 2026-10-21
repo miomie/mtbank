@@ -80,9 +80,7 @@ const Footer = ({ isLight = false }) => {
   ];
 
   const handleNavigation = (path) => {
-    if (path === '/' || path === '/family') {
-      navigate(path);
-    }
+    navigate(path); // Теперь переходит на любые прописанные роуты (включая /chat)
   };
 
   return (
