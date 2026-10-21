@@ -9,9 +9,9 @@ const ChildMain = () => {
           👦
         </div>
         <div>
-          <h1 className="text-base font-black text-[#0f172a] flex items-center gap-1 leading-tight">
+          {/* <h1 className="text-base font-black text-[#0f172a] flex items-center gap-1 leading-tight">
             Артём <span className="text-xs">🦖</span>
-          </h1>
+          </h1> */}
           <p className="text-[11px] text-emerald-600 font-extrabold">Junior</p>
         </div>
       </div>

@@ -17,6 +17,12 @@ const PREDICTIONS = [
 const ChildFamilyPage = () => {
   const { user } = useAuth();
   
+
+  
+  const [userName, setUserName] = useState(() => {
+    return user?.name || localStorage.getItem('moby_username') || 'Ребёнок';
+  });
+
   // Баланс карты
   const [balance, setBalance] = useState(450.00);
   

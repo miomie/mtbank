@@ -1,5 +1,5 @@
-import React from 'react';
-
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '../context/AuthContext';
 const Header = ({ user, isLight = false }) => {
   return (
     <header className={`flex items-center justify-between py-3 px-1 ${isLight ? 'text-[#0f172a]' : 'text-white'}`}>

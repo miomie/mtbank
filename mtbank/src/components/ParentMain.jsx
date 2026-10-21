@@ -9,8 +9,8 @@ const ParentMain = () => {
           В
         </div>
         <div>
-          <h1 className="text-base font-black text-[#0f172a] leading-tight">Виктория</h1>
-          <p className="text-[11px] text-gray-400 font-bold">Онлайн</p>
+          {/* <h1 className="text-base font-black text-[#0f172a] leading-tight">Виктория</h1> */}
+          {/* <p className="text-[11px] text-gray-400 font-bold">Онлайн</p> */}
         </div>
       </div>
 

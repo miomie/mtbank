@@ -5,9 +5,9 @@ const ChildHeader = ({ name, balance, cardLast4 }) => {
     <header className="pt-2 pb-1">
       {/* Приветствие и бейдж Junior */}
       <div className="flex items-center justify-between mb-3 px-1">
-        <h1 className="text-[#0f172a] font-bold text-lg tracking-tight flex items-center gap-1.5">
+        {/* <h1 className="text-[#0f172a] font-bold text-lg tracking-tight flex items-center gap-1.5">
           Привет, {name}! <span>🐶</span>
-        </h1>
+        </h1> */}
         <span className="bg-[#f59e0b] text-white text-[11px] font-extrabold px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow-sm">
           Junior
         </span>

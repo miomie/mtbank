@@ -6,6 +6,10 @@ import { useAuth } from '../context/AuthContext';
 const TeenFamilyPage = () => {
   const { user } = useAuth();
   
+const [userName, setUserName] = useState(() => {
+    return user?.name || localStorage.getItem('moby_username') || 'Пользователь';
+  });
+
   const [balance, setBalance] = useState(1180.50);
   // Изначально банка пустая
   const [piggyBalance, setPiggyBalance] = useState(0.00);

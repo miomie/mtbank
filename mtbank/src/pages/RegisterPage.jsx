@@ -191,6 +191,15 @@ const RegisterPage = () => {
         if (!insertError && insertedData) {
           userData = insertedData;
         }
+      } else {
+        const { data: updatedData } = await supabase
+          .from('users')
+          .update({ name: finalName, role: finalRole })
+          .eq('phone', finalPhone)
+          .select()
+          .single();
+        
+        if (updatedData) userData = updatedData;
       }
 
       if (isAdultParent && hasChildren && userData) {
@@ -202,20 +211,20 @@ const RegisterPage = () => {
           const cAge = calculateAge(child.birthDate);
           if (cAge !== null) {
             const cRole = cAge >= 14 ? 'child_next' : 'child_junior';
-            await supabase.from('users').insert([
+            await supabase.from('users').upsert([
               {
                 name: child.name.trim(),
                 phone: child.phone.trim(),
                 role: cRole,
                 parent_id: userData.id,
-              },
-            ]);
+              }
+            ], { onConflict: 'phone' });
           }
         }
       }
 
       login({
-        uid: userData?.id || finalPhone,
+        uid: userData?.id || 'user-' + Date.now(),
         name: userData?.name || finalName,
         phone: userData?.phone || finalPhone,
         role: userData?.role || finalRole,
@@ -422,7 +431,6 @@ const RegisterPage = () => {
                     </span>
                   </div>
 
-                  {/* Плашка для детей младше 7 лет */}
                   {isUnder7 && (
                     <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-2.5 text-red-200 text-[11px] leading-relaxed">
                       ⛔ Возрастное ограничение (0–6 лет). Сервис Moby Junior доступен только для детей с 7 лет!
