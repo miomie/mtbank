@@ -5,71 +5,7 @@ import { useAuth } from '../context/AuthContext';
 
 const TeenFamilyPage = () => {
   const { user } = useAuth();
-  useEffect(() => {
-    if (user?.uid) {
-      const isFakeId = user.uid.startsWith('fast-');
-      
-      const fetchData = async () => {
-        if (isFakeId) return;
-
-        try {
-          const { data: piggyData, error: piggyError } = await supabase
-            .from('piggy_banks')
-            .select('*')
-            .eq('child_id', user.uid)
-            .single();
-
-          if (piggyData) {
-            setBalance(Number(piggyData.balance));
-            setPiggyBalance(Number(piggyData.piggy_balance));
-            setGoalTitle(piggyData.goal_title);
-            setGoalTarget(Number(piggyData.goal_target));
-            if (piggyData.piggy_grid && piggyData.piggy_grid.length > 0) {
-              setPiggyGrid(piggyData.piggy_grid);
-            }
-          } else if (piggyError && piggyError.code === 'PGRST116') {
-            await supabase.from('piggy_banks').insert([
-              { child_id: user.uid, balance: 1180.50, piggy_balance: 0, goal_title: 'Новый смартфон', goal_target: 500, piggy_grid: createEmptyGrid() }
-            ]);
-          }
-
-          const { data: tasksData, error: tasksError } = await supabase
-            .from('tasks')
-            .select('*')
-            .eq('child_id', user.uid)
-            .order('id', { ascending: false });
-
-          if (tasksError) throw tasksError;
-          setTasks(tasksData || []);
-        } catch (err) {
-          console.error('Ошибка загрузки данных из БД:', err);
-        }
-      };
-      
-      fetchData();
-    }
-  }, [user]);
-
-  // Функция сохранения в БД
-  const savePiggyState = async (newBalance, newPiggyBalance, newGrid, newTitle, newTarget) => {
-    if (!user?.uid || user.uid.startsWith('fast-')) return;
-
-    try {
-      await supabase
-        .from('piggy_banks')
-        .upsert({
-          child_id: user.uid,
-          balance: newBalance,
-          piggy_balance: newPiggyBalance,
-          goal_title: newTitle,
-          goal_target: newTarget,
-          piggy_grid: newGrid,
-          updated_at: new Date()
-        }, { onConflict: 'child_id' });
-    } catch (err) {
-      console.error('Ошибка сохранения копилки в БД:', err);
-    }
-  };
+  
   const [balance, setBalance] = useState(1180.50);
   // Изначально банка пустая
   const [piggyBalance, setPiggyBalance] = useState(0.00);
@@ -92,14 +28,37 @@ const TeenFamilyPage = () => {
   
   const [tasks, setTasks] = useState([]);
 
+  // =========================================================================
+  // 1. ЗАГРУЗКА ДАННЫХ ИЗ SUPABASE ПРИ МОНТИРОВАНИИ
+  // =========================================================================
   useEffect(() => {
     if (user?.uid) {
       const isFakeId = user.uid.startsWith('fast-');
       
-      const fetchMyTasks = async () => {
+      const fetchData = async () => {
         if (isFakeId) return;
 
         try {
+          // Загружаем данные копилки
+          const { data: piggyData, error: piggyError } = await supabase
+            .from('piggy_banks')
+            .select('*')
+            .eq('child_id', user.uid)
+            .single();
+
+          if (piggyData) {
+            setBalance(Number(piggyData.balance));
+            setPiggyBalance(Number(piggyData.piggy_balance));
+            setGoalTitle(piggyData.goal_title);
+            setGoalTarget(Number(piggyData.goal_target));
+          } else if (piggyError && piggyError.code === 'PGRST116') {
+            // Если записи нет — создаем дефолтную
+            await supabase.from('piggy_banks').insert([
+              { child_id: user.uid, balance: 1180.50, piggy_balance: 0, goal_title: 'Новый смартфон', goal_target: 500 }
+            ]);
+          }
+
+          // Загружаем задания
           const { data, error } = await supabase
             .from('tasks')
             .select('*')
@@ -109,13 +68,35 @@ const TeenFamilyPage = () => {
           if (error) throw error;
           setTasks(data || []);
         } catch (err) {
-          console.error('Ошибка загрузки заданий из БД:', err);
+          console.error('Ошибка загрузки данных из БД:', err);
         }
       };
       
-      fetchMyTasks();
+      fetchData();
     }
   }, [user]);
+
+  // =========================================================================
+  // 2. ФУНКЦИЯ СОХРАНЕНИЯ СОСТОЯНИЯ В SUPABASE
+  // =========================================================================
+  const savePiggyState = async (newBalance, newPiggyBalance, title, target) => {
+    if (!user?.uid || user.uid.startsWith('fast-')) return;
+
+    try {
+      await supabase
+        .from('piggy_banks')
+        .upsert({
+          child_id: user.uid,
+          balance: newBalance,
+          piggy_balance: newPiggyBalance,
+          goal_title: title,
+          goal_target: target,
+          updated_at: new Date()
+        }, { onConflict: 'child_id' });
+    } catch (err) {
+      console.error('Ошибка сохранения копилки в БД:', err);
+    }
+  };
 
   const handleAddToPiggy = (e) => {
     e.preventDefault();
@@ -123,8 +104,10 @@ const TeenFamilyPage = () => {
     if (!amount || amount <= 0) return;
 
     if (balance >= amount) {
-      setBalance((prev) => prev - amount);
+      const newBalance = balance - amount;
       const newTotal = piggyBalance + amount;
+
+      setBalance(newBalance);
       setPiggyBalance(newTotal);
 
       // Анимация открытия крышки
@@ -134,6 +117,9 @@ const TeenFamilyPage = () => {
       if (newTotal >= goalTarget) {
         setIsGoalCompletedAnim(true);
       }
+
+      // СОХРАНЯЕМ В БД
+      savePiggyState(newBalance, newTotal, goalTitle, goalTarget);
 
       setPiggyInput('');
     } else {
@@ -147,11 +133,15 @@ const TeenFamilyPage = () => {
     if (!friendTag.trim() || !amount || amount <= 0) return;
 
     if (balance >= amount) {
-      setBalance((prev) => prev - amount);
+      const newBalance = balance - amount;
+      setBalance(newBalance);
       setTransferMsg(`Успешно отправлено ${amount.toFixed(2)} BYN для ${friendTag}`);
       setFriendTag('');
       setTransferAmount('');
       setTimeout(() => setTransferMsg(''), 4000);
+
+      // СОХРАНЯЕМ В БД
+      savePiggyState(newBalance, piggyBalance, goalTitle, goalTarget);
     } else {
       alert('Недостаточно средств на карте!');
     }
@@ -159,11 +149,15 @@ const TeenFamilyPage = () => {
 
   const handleCompleteTask = async (taskId, rewardString) => {
     const rewardNum = parseFloat((rewardString || '').replace(/[^\d.-]/g, '')) || 0;
+    const newBalance = balance + rewardNum;
 
     setTasks((prev) =>
       prev.map((t) => (t.id === taskId ? { ...t, status: 'Выполнено' } : t))
     );
-    setBalance((prev) => prev + rewardNum);
+    setBalance(newBalance);
+
+    // СОХРАНЯЕМ В БД
+    savePiggyState(newBalance, piggyBalance, goalTitle, goalTarget);
 
     if (user && !user.uid.startsWith('fast-')) {
       try {
@@ -176,14 +170,20 @@ const TeenFamilyPage = () => {
 
   const handleSaveGoal = (e) => {
     e.preventDefault();
-    if (tempGoalTitle.trim()) setGoalTitle(tempGoalTitle);
-    if (parseFloat(tempGoalTarget) > 0) setGoalTarget(parseFloat(tempGoalTarget));
+    const newTitle = tempGoalTitle.trim() ? tempGoalTitle : goalTitle;
+    const newTarget = parseFloat(tempGoalTarget) > 0 ? parseFloat(tempGoalTarget) : goalTarget;
+    
+    setGoalTitle(newTitle);
+    setGoalTarget(newTarget);
     
     // СБРОС НАКОПЛЕНИЙ ПРИ СМЕНЕ ЦЕЛИ
     setPiggyBalance(0.00); 
     setIsGoalCompletedAnim(false); 
     
     setIsEditingGoal(false);
+
+    // СОХРАНЯЕМ В БД (сбрасываем накопления банки до 0)
+    savePiggyState(balance, 0.00, newTitle, newTarget);
   };
 
   const recentTransfers = [

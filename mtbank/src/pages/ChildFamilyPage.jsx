@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
 import Footer from '../components/Footer';
-import { LuNut } from "react-icons/lu";
 
 // Список предсказаний от белочки
 const PREDICTIONS = [
@@ -36,12 +35,43 @@ const ChildFamilyPage = () => {
   // Задания из БД
   const [tasks, setTasks] = useState([]);
 
-  // Подгрузка заданий
+  // =========================================================================
+  // ЗАГРУЗКА ИЗ БАЗЫ ДАННЫХ ПРИ СТАРТЕ
+  // =========================================================================
   useEffect(() => {
     if (user?.uid) {
-      const fetchMyTasks = async () => {
-        if (user.uid.startsWith('fast-')) return;
+      const isFakeId = user.uid.startsWith('fast-');
+      
+      const fetchChildData = async () => {
+        if (isFakeId) return;
+
         try {
+          // Загружаем данные белки/копилки
+          const { data: petData, error: petError } = await supabase
+            .from('piggy_banks')
+            .select('*')
+            .eq('child_id', user.uid)
+            .single();
+
+          if (petData) {
+            setBalance(Number(petData.balance ?? 450.00));
+            setSquirrelSaved(Number(petData.piggy_balance ?? 0));
+            setGoalName(petData.goal_title ?? 'Лего');
+            setGoalPrice(String(petData.goal_target ?? 50));
+          } else if (petError && petError.code === 'PGRST116') {
+            // Если записи нет — создаем дефолтную
+            await supabase.from('piggy_banks').insert([
+              { 
+                child_id: user.uid, 
+                balance: 450.00, 
+                piggy_balance: 0, 
+                goal_title: 'Лего', 
+                goal_target: 50 
+              }
+            ]);
+          }
+
+          // Загружаем задания
           const { data, error } = await supabase
             .from('tasks')
             .select('*')
@@ -51,37 +81,69 @@ const ChildFamilyPage = () => {
           if (error) throw error;
           setTasks(data || []);
         } catch (err) {
-          console.error('Ошибка загрузки заданий из БД:', err);
+          console.error('Ошибка загрузки данных из БД:', err);
         }
       };
-      fetchMyTasks();
+      
+      fetchChildData();
     }
   }, [user]);
+
+  // =========================================================================
+  // ФУНКЦИЯ СОХРАНЕНИЯ СОСТОЯНИЯ В SUPABASE
+  // =========================================================================
+  const savePetState = async (newBalance, newSquirrelSaved, title, target) => {
+    if (!user?.uid || user.uid.startsWith('fast-')) return;
+
+    try {
+      await supabase
+        .from('piggy_banks')
+        .upsert({
+          child_id: user.uid,
+          balance: newBalance,
+          piggy_balance: newSquirrelSaved,
+          goal_title: title,
+          goal_target: parseFloat(target) || 0,
+          updated_at: new Date()
+        }, { onConflict: 'child_id' });
+    } catch (err) {
+      console.error('Ошибка сохранения белки в БД:', err);
+    }
+  };
 
   // Сохранение новой цели со сбросом прогресса
   const handleSaveGoal = (e) => {
     e.preventDefault();
-    if (tempGoalName.trim()) setGoalName(tempGoalName);
-    if (parseFloat(tempGoalPrice) > 0) setGoalPrice(parseFloat(tempGoalPrice));
+    const newName = tempGoalName.trim() ? tempGoalName : goalName;
+    const newPrice = parseFloat(tempGoalPrice) > 0 ? tempGoalPrice : goalPrice;
+
+    setGoalName(newName);
+    setGoalPrice(newPrice);
     
-    // Сбрасываем накопления и закрываем режим редактирования
+    // Сбрасываем накопления
     setSquirrelSaved(0);
     setIsEditingGoal(false);
     
     // Приветственное сообщение для новой цели
-    setPrediction('Новая цель! Начинаем копить' + <LuNut />);
+    setPrediction('Новая цель! Начинаем копить 🌰');
     setIsJumping(true);
     setTimeout(() => {
       setIsJumping(false);
     }, 3000);
+
+    // СОХРАНЯЕМ В БД (сбрасываем piggy_balance до 0)
+    savePetState(balance, 0, newName, newPrice);
   };
 
   // Кормление белки (Копилка)
   const handleFeedPet = () => {
     if (balance >= 2) {
+      const newBalance = balance - 2;
+      const newSaved = squirrelSaved + 2;
+
       // Списываем с карты, добавляем белке
-      setBalance((prev) => prev - 2);
-      setSquirrelSaved((prev) => prev + 2);
+      setBalance(newBalance);
+      setSquirrelSaved(newSaved);
       
       // Анимация еды и случайное предсказание
       setIsJumping(true);
@@ -91,6 +153,9 @@ const ChildFamilyPage = () => {
       setTimeout(() => {
         setIsJumping(false);
       }, 3000);
+
+      // СОХРАНЯЕМ В БД
+      savePetState(newBalance, newSaved, goalName, goalPrice);
     } else {
       alert('Недостаточно денег на балансе!');
     }
